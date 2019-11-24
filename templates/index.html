@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en">
+<head>
+    <meta charset="utf-8" />   <title>Temperature  and humidity chart </title>
+	<script src='static/jquery.min.js'></script>
+	<!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script> -->
+</head>
+
+<body>
+<h1 align="center">House control</h1>
+<hr>
+<div align = "center">
+<h4>
+<a href="temp_hum_chart">Temperature and humidity chart</a>
+<br>
+<a href="co2_chart">CO2 chart</a>
+<br>
+<a href="particles_chart">Particles dust chart</a>
+<br>
+<a href="watering_chart">Plants watering chart</a>
+<br>
+<a href="watering_table">Plants watering table</a>
+</h4>
+</div>
+<hr>
+<br>
+
+<div id="status_info">Updating status info ...</div>
+
+<script>	
+	
+	function updateData() {
+		$.ajax({
+		  url: "/status_info",
+		  type: "get",
+		  data: "",
+		  success: function(response) {
+			//console.log(response);
+			$("#status_info").html(response);
+		  },
+		  error: function(xhr) {
+			document.getElementById('status_info').innerHTML = "Error get status info, trying receive it ...";
+		  }
+		});
+	}
+	updateData()
+	window.setInterval(updateData, 1000);
+	
+</script>
+</body></html>

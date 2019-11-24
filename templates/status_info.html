@@ -1,0 +1,53 @@
+<table width=70% border=2 align="center">
+	<tr>
+		<td rowspan="2">
+			<h3 align="center">Temperature, °C</h3>
+		</td>
+		<td rowspan="2">
+			<h3 align="center">Humidity, %</h3>
+		</td>
+		<td rowspan="2">
+			<h3 align="center">CO2, ppm</h3>
+		</td>
+		<td colspan="3">
+			<h3 align="center">Particles</h3>
+		</td>
+	</tr>
+	<tr>		
+		<td>
+			<h3 align="center">{{particles[0][0]}}, {{particles[0][2]}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{particles[1][0]}}, {{particles[1][2]}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{particles[2][0]}}, {{particles[2][2]}}</h3>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<h3 align="center">{{temp}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{hum}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{co2}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{particles[0][1]}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{particles[1][1]}}</h3>
+		</td>
+		<td>
+			<h3 align="center">{{particles[2][1]}}</h3>
+		</td>
+	</tr>
+</table>
+<br>
+<hr>
+<br>
+<table border="1|0" width=30% align="center">
+	{{status_info|safe}}
+</table>

@@ -1,0 +1,63 @@
+
+<!DOCTYPE html><html lang="en">
+<head>   
+    <meta charset="utf-8" />   <title>Watering chart </title>     
+     <!-- import plugin script -->   
+     
+      <script src='static/moment-with-locales.js'></script>   
+       <script src='static/hammer.min.js'></script>   
+      <script src='static/chartjs-plugin-zoom.js'></script>   
+     <script src='static/Chart.js'></script>   
+     <style>
+    body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #FFFFFF;
+    }
+  </style>
+</head>
+
+<body>
+<table width=100%>
+	<tr>
+		<td>
+			<form action="/">
+				<input type="submit" value="Go home" />
+			</form>			
+		</td>
+		<td>
+			<form align = "center">
+			  Start date:
+			  <input type="date" id="start_date" name="start_date" data-date-format="DD MMMM YYYY" format="dd/mm/yyyy" placeholder="DD-MM-YYYY">
+			  End date:
+			  <input type="date" id="end_date" name="end_date" data-date-format="DD MMMM YYYY" format="dd/mm/yyyy" placeholder="DD-MM-YYYY">
+			  <input type="submit" value="Submit">
+			</form>
+		</td>
+		<td>
+			<form align = "center">
+				<input type="hidden" id="start_date" name="start_date" value="1">				
+				<input type="submit" value="Day chart" />
+			</form>			
+		</td>
+	</tr>
+</table>
+<hr>
+<br>
+<!-- bar chart canvas element -->
+<table  border="1" width=50% id="values_water" align = "center">
+	<tr>
+		<td align="center"><h4>Date</td>
+		<td align="center"><h4>Length, s</td>
+		<td align="center"><h4>Reason</td>
+	</tr>
+	{{values_water|safe}}
+</table>
+
+<script> 
+    document.getElementById("start_date").value = "{{start_date}}";    
+    document.getElementById("end_date").value = "{{end_date}}";       
+</script>
+</body></html>

@@ -1,0 +1,14 @@
+
+*~
+*.pyc
+*.db
+*.log
+*.pid
+*.lock
+
+log/*
+image.jpg
+plot.png
+
+
+keywords

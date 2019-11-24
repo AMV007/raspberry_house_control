@@ -1,0 +1,155 @@
+
+<!DOCTYPE html><html lang="en">
+<head>   
+    <meta charset="utf-8" />   <title>{{temp}} </title>     
+     <!-- import plugin script -->   
+     
+      <script src='static/moment-with-locales.js'></script>   
+       <script src='static/hammer.min.js'></script>   
+      <script src='static/chartjs-plugin-zoom.js'></script>   
+     <script src='static/Chart.js'></script>   
+     <style>
+    body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #FFFFFF;
+    }
+  </style>
+</head>
+
+<body>
+<table width=100%>
+	<tr>
+		<td>
+			<form action="/">
+				<input type="submit" value="Go home" />
+			</form>			
+		</td>
+		<td>
+			<form align = "center">
+			Detailed:
+			<input type="checkbox" id="detailed" name="detailed">
+			  Start date:
+			  <input type="date" id="start_date" name="start_date" data-date-format="DD MMMM YYYY" format="dd/mm/yyyy" placeholder="DD-MM-YYYY">
+			  End date:
+			  <input type="date" id="end_date" name="end_date" data-date-format="DD MMMM YYYY" format="dd/mm/yyyy" placeholder="DD-MM-YYYY">
+			  <input type="submit" value="Submit">
+			</form>
+		</td>
+		<td>
+			<form align = "center">
+				<input type="hidden" id="start_date" name="start_date" value="1">				
+				<input type="submit" value="Day chart" />
+			</form>			
+		</td>
+	</tr>
+</table>
+<hr>
+<!-- bar chart canvas element -->
+<canvas id="chart" width=100% height=45% "></canvas>
+<script> 
+    document.getElementById("start_date").value = "{{start_date}}";    
+    document.getElementById("end_date").value = "{{end_date}}";    
+   // bar chart data
+   var chartData = {
+   labels : [{% for item in labels %}
+                  "{{item}}",
+              {% endfor %}],
+   datasets : [
+			{% for i in range(0,legends|length) %}
+                {
+                label: "{{legends[i]}}",
+                fillColor: "rgba(151,187,205,0.2)",
+                strokeColor: "rgba(151,187,205,1)",
+                backgroundColor:"{{colors[i]}}",
+                pointColor: "blue",
+                pointRadius: 2,
+                data : [{% for item in values[i] %}
+                          {{item}},
+                        {% endfor %}]
+				},
+			{% endfor %}         
+		]
+   }
+   
+   var chartColor =[
+    'red',    // color for data at index 0
+    'blue',   // color for data at index 1
+    'green',  // color for data at index 2
+    'black',  // color for data at index 3
+    //...
+]
+   
+ 
+   // get bar chart canvas
+   var mychart = document.getElementById("chart").getContext("2d");
+ 
+   steps = 1
+   max = 50
+   
+   var chart = new Chart(mychart, {
+    type: 'line',
+    data: chartData,      
+    options: {        
+    title: {
+            display: true,
+            text: 'Temperature and humidity in room'
+        },
+         scaleOverride: false,
+        scaleSteps: steps,
+        scaleStepWidth: Math.ceil(max / steps),
+        scaleStartValue: 0,
+        scaleShowVerticalLines: true,
+        scaleShowGridLines : true,
+        barShowStroke : true,
+        scaleShowLabels: true,
+        legend: {
+        } ,
+        scales: {
+            xAxes: [{
+                type: 'time',
+                 time: {          
+					unit : 'hour',					
+                    displayFormats: {
+                        'hour': 'D MMM, HH',
+						'day':  'D MMM, HH'
+                    }
+                },		
+            }]
+        },
+        elements: {
+            line: {
+                tension: 0, // disables bezier curves
+            }
+        },
+        animation: {
+            duration: 0, // general animation time
+        },
+        hover: {
+            animationDuration: 0, // duration of animations when hovering an item
+        },
+        responsiveAnimationDuration: 0, // animation duration after a resize,
+        responsive: true,
+        pan: {
+						enabled: true,
+						mode: 'xy',
+						speed: 10,
+						threshold: 10
+					},
+					zoom: {
+						enabled: true,
+						mode: 'y',
+						limits: {
+							max: 10,
+							min: 0.5
+						}
+					},
+    }
+});
+  
+ 
+  
+</script>
+</body></html>
