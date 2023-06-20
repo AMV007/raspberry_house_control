@@ -3,23 +3,19 @@ import os
 import sys
 
 import config
-import logging
 
 import time as tm
 from time import sleep
 from datetime import datetime, time as datetime_time, timedelta
 
 from utils.common import get_time
-import my_logging
-from my_logging import setup_logger
+import app_logger
 
 from RootDevice import RootDevice
 
 
 
 class ThermalFan(RootDevice):
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         if not hasattr(config, "GPIO_RUN_FAN"):

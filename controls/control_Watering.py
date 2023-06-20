@@ -19,7 +19,7 @@ from utils.common import get_time
 import sensors
 import devices
 
-import my_logging
+import app_logger
 import database
 
 from RootControl import RootControl
@@ -33,7 +33,7 @@ class Watering(RootControl):
     WaterLevelDropSensor=None
 
     def __init__(self):
-        super().__init__(self.__class__.__name__)
+        super().__init__()
         self.control_devices.extend(devices.get(devices.WaterPump))
         self.control_sensors.extend(sensors.get(sensors.Moisture))
         if len(self.control_sensors)>1:
@@ -48,8 +48,8 @@ class Watering(RootControl):
             return False
 
         if len(self.control_sensors)<2:
-            my_logging.logger.error("not enough watering control sensors sount, need 2 sensors for now")
-            return False # need 2 sensors for work properly for now 
+            app_logger.warn("not enough watering control sensors count, need 2 sensors for now")
+            return False # need 2 sensors for work properly for now
 
         self.time_wait_days = config.DEF_TIME_WAIT_DAYS
         self.watering_count = database.get_num_watering_time()
@@ -80,7 +80,7 @@ class Watering(RootControl):
         try:
             last_updated = database.get_latest_watering_date()
         except (IOError, ValueError) as e:
-            print("Error database.get_latest_watering_date, resetting, error="+str(e))
+            app_logger.error("Error database.get_latest_watering_date, resetting, error="+str(e))
         return last_updated
 
 
@@ -89,7 +89,7 @@ class Watering(RootControl):
         try:
             count = database.get_num_watering_time()
         except (IOError, ValueError) as e:
-            print("Error database.get_num_watering_time, resetting, error="+str(e))
+            app_logger.error("Error database.get_num_watering_time, resetting, error="+str(e))
         return count
 
     # only possible during watering
@@ -97,31 +97,32 @@ class Watering(RootControl):
         water_low_level = self.WaterLevelDropSensor.read_val()
         database.add_water_level_status(water_low_level)
         if water_low_level and Notify:
-            my_logging.logger.info("low level of water")
+            app_logger.info("low level of water")
             self.send_water_warning_mail()
             self.send_telegram_warning(config.warning_message_water)
-        return not water_low_level
+
+        return water_low_level
 
 
     def do_watering(self, reason, watering_seconds=config.DEF_TIME_WATER_S, Notify=True):
-        #    print "watering start " + get_time()
-
         for device in self.control_devices:
             device.enable()
 
         self.time_wait_days = config.DEF_TIME_WAIT_DAYS
         for i in range(0, watering_seconds):
             sleep(1)
-            if i > 10 and not self.__check_water_level(False):
+            # take in mind, that measure water level at 5 second so not wait more that 4 seconds to measure
+            if i >= 4 and self.__check_water_level(False):
                 sleep(1)
-                if not self.__check_water_level(Notify):
+                if self.__check_water_level(Notify):
                     self.time_wait_days = 1
                     break
 
         for device in self.control_devices:
             device.disable()
+
         database.add_watering_date(watering_seconds, reason)
-        my_logging.logger.info("watering done at: " + get_time())
+        app_logger.info("watering done at: " + get_time())
         return self.time_wait_days
 
     # for bot
@@ -152,11 +153,11 @@ class Watering(RootControl):
                 conn.sendmail(config.email_sender,
                             config.email_destination, msg.as_string())
             except:
-                my_logging.logger.error("error send mail1 !")
+                app_logger.error("error send mail1 !")
             finally:
                 conn.quit()
-            my_logging.logger.info("warning mail out ok")
+            app_logger.info("warning mail out ok")
         except Exception as e:
-            my_logging.logger.exception("error send mail !"+str(e))
+            app_logger.exception("error send mail !"+str(e))
             pass
         return

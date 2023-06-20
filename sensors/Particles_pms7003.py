@@ -1,18 +1,9 @@
-import RPi.GPIO as GPIO
-import os
-import sys
 import threading
-import logging
-
-# for debug
-import traceback
-from datetime import datetime
+import traceback # for debug
 import time
 
-import config
-import sensors
-import my_logging
-import utils
+import app_logger
+import bus
 
 from RootSensor import RootSensor
 
@@ -76,6 +67,7 @@ def decode_frame(_frame):
 
 def get_frame(_serial):
     timeout = time.time() + 5   # 5 seconds
+
     while time.time() < timeout:
         b = _serial.read()
         if b != HEAD_FIRST:
@@ -91,38 +83,64 @@ def get_frame(_serial):
         return bytearray(body)
     raise ValueError("Particles_pms7003 sensor data not received")
 
+def set_sleep_mode(_serial, mode):
+    send_data = bytearray([0x42,0x4d,0xe4,0x00,0x00,0x00,0x00])
+    if not mode:
+        send_data[4]=1
+    sum=send_data[0]+send_data[1]+send_data[2]+send_data[3]+send_data[4]
+    send_data[5]=(sum>>8)&0xFF
+    send_data[6]=(sum>>0)&0xFF
+
+    _serial.write(send_data)
+
+
+
 #######################################################################3
-from utils.UartBus import UartBus
+from bus.UartBus import UartBus
 class Particles_pms7003(RootSensor):
     sleep_timer = None
     sleep_count = 0
     uart_bus=None
 
     def __init__(self):
-        super().__init__(self.__class__.__name__)
+        super().__init__()
+        self.uart_bus=bus.UartBus.UartBus()
 
     def probe(self):
-        with self.lock:
-            if not hasattr(config, "GPIO_SLEEP_PARTICLES"):
+        # init device
+        try:
+            if not self.uart_bus or not self.uart_bus.probe(): #UART bus not exist
                 return False
-            self.uart_bus=UartBus()
-            GPIO.setup(config.GPIO_SLEEP_PARTICLES, GPIO.OUT)
-            GPIO.output(config.GPIO_SLEEP_PARTICLES, GPIO.LOW)
+
+            # try to read a line of data from the serial port and parse
+            if not self.read_val() :
+                raise ValueError('no particles sensor data')
+        except Exception:
+            app_logger.exception("parcticles probe exception:")
+            return False
+
         return True
 
     def disable(self):
-        super().disable()
-        GPIO.output(config.GPIO_SLEEP_PARTICLES, GPIO.LOW)
+        with self.lock:
+            if self.sleep_timer and self.sleep_timer.is_alive():
+                self.sleep_timer.cancel()
+            self.set_sleep(True)
 
+        super().disable()
+
+    #for internal usage inside read_val
     def read_data(self):
         try:
             self.uart_bus.acqure_lock_switch_to_measure_particles()
+            time.sleep(0.1) #for stabilize processes
+
             frame = get_frame(self.uart_bus)
-        except Exception as e:
-            my_logging.logger.exception("particles get frame got exception:")
+        except Exception:
+            app_logger.exception("particles get frame got exception:")
         else:
             if not valid_frame_checksum(frame):
-                my_logging.logger.error('frame checksum mismatch')
+                app_logger.error('frame checksum mismatch')
                 return None
             data = {'data': decode_frame(frame)}
             version, error_code = get_version_and_error_code(frame)
@@ -133,33 +151,45 @@ class Particles_pms7003(RootSensor):
             self.uart_bus.release_lock_switch()
         return None
 
-    def sleep_sensor(self, count):
+    def set_sleep(self, mode):
+        try:
+            self.uart_bus.acqure_lock_switch_to_measure_particles()
+            set_sleep_mode(self.uart_bus, mode)
+        except Exception:
+            app_logger.exception("set sleep exception:")
+        finally:
+            self.uart_bus.release_lock_switch()
+
+    def sleep_sensor_callback(self, count):
         with self.lock:
             try:
-                #print("sleep sensor "+str(count)+", "+str(datetime.now()))                
-                GPIO.output(config.GPIO_SLEEP_PARTICLES, GPIO.LOW)
-            finally:
-                pass
+                #print("sleep sensor "+str(count)+", "+str(datetime.now()))
+                self.set_sleep(True)
+            except Exception:
+                app_logger.exception("sleep sensor exception:")
 
     def read_val(self):
-        ret = None
-
+        value = None
         sensor_warm = False
-        # traceback.print_stack(file=sys.stdout)
-
-        timeout = time.time() + 10   # 10 seconds, increased from 5 seconds, because not enough time ???
+        timeout = time.time() + 20   # 5 seconds only for warm up
 
         while time.time() < timeout:
             with self.lock:
                 try:
-                    if self.sleep_timer:
-                        if self.sleep_timer.is_alive():
-                            sensor_warm = True
+
+                    if self.sleep_timer and self.sleep_timer.is_alive():
                         self.sleep_timer.cancel()
-                    GPIO.output(config.GPIO_SLEEP_PARTICLES, GPIO.HIGH)
+                        sensor_warm = True
+
+                    #waking up sensor - allways
+                    self.set_sleep(False)
 
                     if not sensor_warm:
-                        time.sleep(2)  # waiting sensor warm up
+                        #print ("wating particles sensor warm up")
+                        time.sleep(5)  # waiting sensor warm up
+                    else:
+                        #print ("partilces not warming")
+                        pass
 
                     data = self.read_data()
 
@@ -174,31 +204,35 @@ class Particles_pms7003(RootSensor):
                         #v = data['data'][k]
                         # if v[]]
                         #print('{}: {} {}'.format(v[0], v[1], v[2]))
-                    return data
-                except Exception as e:
-                    my_logging.logger.exception("particles read exception:")
-                    pass
+                    value=data
+                except Exception:
+                    app_logger.exception("particles read exception:")
+                else:
+                    break
                 finally:
                     # so sensor will not sleep during constant update over server
-                    #print("start sleep timer "+str(sleep_count)+", "+str(datetime.now()))
-                    self.sleep_timer = threading.Timer(10, self.sleep_sensor, [self.sleep_count])
+                    #print("start sleep timer "+str(self.sleep_count)+", "+str(datetime.now()))
+                    self.sleep_timer = threading.Timer(10, self.sleep_sensor_callback, [self.sleep_count])
                     self.sleep_timer.start()
                     self.sleep_count = self.sleep_count+1
-                    #GPIO.output(config.GPIO_SLEEP_PARTICLES, GPIO.LOW)
-        return ret
+
+        self.data_bus.particles=value
+        return value
 
     def get_status_str(self):
         ret = ""
-        data = self.read_val()
+        if not self.data_bus.particles:
+            self.read_val()
 
-        if data:
-            pm1 = data['data']['8']
-            pm25 = data['data']['10']
-            pm10 = data['data']['12']
+        if self.data_bus.particles:
+            pm1 = self.data_bus.particles['data']['8']
+            pm25 = self.data_bus.particles['data']['10']
+            pm10 = self.data_bus.particles['data']['12']
 
             ret += 'Particles {}: {} {}\n'.format(pm1[0], pm1[1], pm1[2])
             ret += 'Particles {}: {} {}\n'.format(pm25[0], pm25[1], pm25[2])
             ret += 'Particles {}: {} {}'.format(pm10[0], pm10[1], pm10[2])
         else:
-            ret += "not working"
+            ret += "not readed"
         return ret
+

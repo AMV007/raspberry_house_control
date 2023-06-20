@@ -26,12 +26,13 @@ from pathlib import Path
 active=[]
 
 #init all sensors
-def init():
+def init(logger):
     global active
+    logger.info(f"{__name__} initing ...")
     for cls in RootSensor.RootSensor.__subclasses__():
         new_cls=cls()
         if new_cls.probe():
-            print (f"sensor exist: {type(new_cls).__name__}")
+            logger.info (f"sensor exist: {type(new_cls).__name__}")
             active.append(new_cls)
 
 def disable():
@@ -50,6 +51,7 @@ def get(dev_module):
         if name==filename:
             res.append(entry)
     if len(res) == 0:
+        '''not exist any instance'''
         pass
     return res
 

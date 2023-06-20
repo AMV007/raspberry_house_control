@@ -6,8 +6,10 @@ from time import sleep
 import numpy as np
 import pigpio
 
+
 import config
-from utils.Singleton import Singleton
+from Singleton import Singleton
+import app_logger
 
 ########## IR funcs
 def write_one_IR(PIN_GPIO_OUT, pi, timeout_mks):
@@ -25,7 +27,7 @@ def write_output_internal(PIN_GPIO_OUT, bandwidth, data):
 
     status = os.system('systemctl is-active --quiet pigpiod')
     if status !=0:
-        print(f"service status={status}")
+        app_logger.info(f"service status={status}")
         os.system("sudo service pigpiod start")
         sleep(1)
 
@@ -33,7 +35,7 @@ def write_output_internal(PIN_GPIO_OUT, bandwidth, data):
     data_bits=""
     wait_timeout_mks=(1/bandwidth)
     wait_timeout_mks-=(100e-6) # because python latencies
-    print(f"wait_timeout_mks={int(wait_timeout_mks*1e6)}")
+    app_logger.info(f"wait_timeout_mks={int(wait_timeout_mks*1e6)}")
 
     write_one_IR(PIN_GPIO_OUT, pi, wait_timeout_mks*8)
     write_zero_IR(PIN_GPIO_OUT, wait_timeout_mks*3)
@@ -48,7 +50,7 @@ def write_output_internal(PIN_GPIO_OUT, bandwidth, data):
         if bit:
             write_zero_IR(PIN_GPIO_OUT, wait_timeout_mks*3)
         else:
-            write_zero_IR(PIN_GPIO_OUT, wait_timeout_mks) 
+            write_zero_IR(PIN_GPIO_OUT, wait_timeout_mks)
 
     # last stop bit
     write_one_IR(PIN_GPIO_OUT, pi, wait_timeout_mks)

@@ -2,17 +2,20 @@ import os, sys
 from threading import Thread
 from time import sleep
 
-#my imports 
+#my imports
 import devices
 import sensors
 import controls
 import sound
+from threading import Event
 
-import my_logging
+import app_logger
 import config
 
 Running = None
 thread = None
+
+exit = Event()
 
 def init():
     global thread
@@ -26,11 +29,12 @@ def deinit():
     global thread
     global Running
     Running = False
-    print("start stoping "+os.path.basename(__file__))
+    exit.set()
+
+    app_logger.info("start stoping "+os.path.basename(__file__))
     if thread != None:
         thread.join()
-    print(__file__+" stopped")
-
+    app_logger.info(__file__+" stopped")
 
 def listen_thread(arg):
     while Running:
@@ -39,8 +43,10 @@ def listen_thread(arg):
             for control in controls.active:
                 control.do_check(noisy_time)
                 if not Running:
-                    break
-            sleep(config.CHECK_PERIOD_S)
-        except Exception as e:
-            my_logging.logger.exception("main exception:")
+                    return
+
+            exit.wait(config.CHECK_PERIOD_S)
+        except Exception:
+            app_logger.exception("watch thread exception:")
+            exit.wait(config.CHECK_PERIOD_S) # for not spam
             pass

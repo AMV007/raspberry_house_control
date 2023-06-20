@@ -7,8 +7,8 @@ class RootDevice(ABC):
     enabled=False
     lock = None
 
-    def __init__(self, name):
-        self.name="device "+name
+    def __init__(self):
+        self.name="device "+self.__class__.__name__
         self.lock = Lock()
 
     @abstractmethod

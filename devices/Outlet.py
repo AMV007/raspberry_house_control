@@ -3,13 +3,10 @@ import os
 import sys
 
 import config
-import logging
 
 from RootDevice import RootDevice
 
 class Outlet(RootDevice):
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         if not hasattr(config, "GPIO_OUTLET_ENABLE"):
@@ -29,5 +26,4 @@ class Outlet(RootDevice):
         with self.lock:
             super().disable()
             GPIO.output(config.GPIO_OUTLET_ENABLE, GPIO.HIGH)
-
 

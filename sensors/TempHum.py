@@ -1,21 +1,15 @@
 import RPi.GPIO as GPIO
-import os
-import sys
 
 import config
-import logging
 
 import time
 from time import sleep
 from datetime import datetime, time as datetime_time, timedelta
 
 from utils.common import get_time
-import my_logging
-from my_logging import setup_logger
-import traceback
+import app_logger
 
 import Adafruit_DHT
-import database
 
 from RootSensor import RootSensor
 
@@ -79,8 +73,6 @@ def read_raw_val(pin):
     return (res, error)
 
 class TempHum(RootSensor):
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         with self.lock:
@@ -111,55 +103,49 @@ class TempHum(RootSensor):
             tot_humidity = 0
             tot_temperature = 0
             try:
+                num_good_cycles = 0
                 num_cycles_wrong = 0
-                num_cycles_total = 1
+
                 GPIO.output(config.GPIO_ENABLE_POWER_TEMP_HUM, GPIO.HIGH)
                 # sleep(1) # wait sensor warm up - not waiting now, because at's constantly enabled
-                for x in range(0, num_cycles_total):
-                    humidity = 0
-                    temperature = None
+                timeout = time.time() + 5   # 5 seconds
+                while time.time() < timeout:
                     error = 0
+                    humidity, temperature = Adafruit_DHT.read_retry(config.TEMP_DHT_VER, config.GPIO_GET_TEMP_HUMID)
+                    #humidity, temperature,error=read_dht22_data(config.GPIO_GET_TEMP_HUMID) # my implemented read
 
-                    num_cycles=0
-                    timeout = time.time() + 5   # 5 seconds
-                    while time.time() < timeout:
-                        humidity, temperature = Adafruit_DHT.read_retry(
-                            config.TEMP_DHT_VER, config.GPIO_GET_TEMP_HUMID)
-                        #humidity, temperature,error=read_dht22_data(config.GPIO_GET_TEMP_HUMID)
-                        if error == 0:
-                            if temperature != None and humidity < 100 and humidity > 5:
-                                # all good
-                                break
-                            else:
-                                #print("temperature="+str(temperature)+", humidity="+str(humidity)+", error="+str(error)+", num_cycles_wrong: "+str(num_cycles))
-                                pass
-                        else:
-                            #print("temperature="+str(temperature)+", humidity="+str(humidity)+", error="+str(error)+", num_cycles_wrong: "+str(num_cycles))
-                            pass
-                        num_cycles+=1
-
-                    num_cycles_wrong += num_cycles
-                    if temperature != None and error == 0:
+                    if error == 0 and temperature != None and humidity < 100 and humidity > 5:
                         tot_humidity += humidity
                         tot_temperature += temperature
+                        num_good_cycles+=1
+                        if num_good_cycles>3:
+                            break # enough good data
                     else:
-                        tot_humidity = num_cycles_total*50
-                        tot_temperature += num_cycles_total*25
-                        my_logging.logger.debug("can't measure temperature")
+                        num_cycles_wrong+=1
 
                 GPIO.output(config.GPIO_ENABLE_POWER_TEMP_HUM, GPIO.LOW)
-                tot_humidity /= num_cycles_total
-                tot_temperature /= num_cycles_total
-                #my_logging.logger.info( 'Temp: {0:0.1f} C  Humidity: {1:0.1f} %'.format(tot_temperature, tot_humidity)+", num cycles: "+str(num_cycles_wrong))
+
+                if num_good_cycles > 0 :
+                    tot_humidity /= num_good_cycles
+                    tot_temperature /= num_good_cycles
+                else:
+                    #to not enable fan by default
+                    tot_humidity=50
+                    tot_temperature=25
+                    app_logger.debug("can't measure temperature and humidity, wrong cycles: "+str(num_cycles_wrong))
+
+                #app_logger.info( 'Temp: {0:0.1f} C  Humidity: {1:0.1f} %'.format(tot_temperature, tot_humidity)+", num cycles: "+str(num_cycles_wrong))
             except Exception as e:
-                my_logging.logger.exception(
-                    "get temp error, temp="+str(tot_temperature)+", hum="+str(tot_humidity))
+                app_logger.exception("get temp error, temp="+str(tot_temperature)+", hum="+str(tot_humidity))
             finally:
+                self.data_bus.temperature=tot_temperature
+                self.data_bus.humidity=tot_humidity
                 return (tot_temperature, tot_humidity, num_cycles_wrong)
 
-
     def get_status_str(self):
-        temperature, humidity, num_cycles_wrong = self.read_val()
+        if not self.data_bus.temperature:
+            self.read_val()
+
         ret = 'Temp: {0:0.1f} °C \nHumidity: {1:0.1f} %\n'.format(
-            temperature, humidity,)+"measure try: "+str(num_cycles_wrong)
+            self.data_bus.temperature, self.data_bus.humidity,)
         return ret

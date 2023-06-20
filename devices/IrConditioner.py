@@ -6,9 +6,10 @@ import numpy as np
 import pigpio
 
 import config
-import logging
 import utils
 from RootDevice import RootDevice
+
+import app_logger
 
 def find_nearest(array, value):
     n = [abs(i-value) for i in array]
@@ -22,7 +23,7 @@ def decode_data(commands):
     analyzed_len=len(commands)-len(commands)%16
 
     if len(commands)%16 !=1: #1 - stop bit at the end
-        print(f"warning, got unknown bits: {len(commands)%16}")
+        app_logger.error(f"warning, got unknown bits: {len(commands)%16}")
 
     threshold = 0
     for counter in range(0,analyzed_len,2):
@@ -33,7 +34,7 @@ def decode_data(commands):
     bands=[110, 300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200, 128000 ]
     possible_band=int(1e6/threshold)
     bandwidth=find_nearest(bands, possible_band)
-    print(f"threshold={threshold}, possible_band:{possible_band} bps")
+    app_logger.error(f"threshold={threshold}, possible_band:{possible_band} bps")
 
     #ignoring first 3 commands - empirically
 
@@ -44,7 +45,7 @@ def decode_data(commands):
     #due to gaps, need to increase it's threshold value
     threshold*=1.5
 
-    
+
     for counter in range(1,analyzed_len,2):
         val, pulseLength = commands[counter]
         index = int((counter)/16)
@@ -73,10 +74,10 @@ def get_conditioner_data_array(enabled, hvac_mode, temperature, fan, vanne):
         data.append(0x8)
     else:
         raise "unknown mode"
-    
+
     if temperature>31 or temperature<16:
         raise "not possible temperature"
-    
+
     temperature=31-temperature
     data.append(temperature)
 
@@ -108,7 +109,7 @@ def get_conditioner_data_array(enabled, hvac_mode, temperature, fan, vanne):
         fan_vanne|=0x38
     else:
         raise "unknown vanne value"
-    
+
     data.append (fan_vanne)
     # clock ?
     data.append(0)
@@ -122,13 +123,13 @@ def get_conditioner_data_array(enabled, hvac_mode, temperature, fan, vanne):
     return data
 
 def check_conditioner_data_crc(data):
-    print (f"check data[{len(data)}]: "+''.join('0x{:02x}, '.format(x) for x in data))
+    app_logger.info (f"check data[{len(data)}]: "+''.join('0x{:02x}, '.format(x) for x in data))
     recv_data=data[:-1]
     sum_arr=sum(data[:-1])&0xff
     if sum_arr != data[-1]:
-        print(f"CRC ERROR !!! must be 0x{sum_arr:x} but we have 0x{data[-1]:x}")
+        app_logger.error(f"CRC ERROR !!! must be 0x{sum_arr:x} but we have 0x{data[-1]:x}")
     else:
-        print("CRC OK")
+        app_logger.info("CRC OK")
 
 ###############################################
 
@@ -137,15 +138,12 @@ class IrConditioner(RootDevice):
     irControl=None
     bandwidth=2400
 
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
-
     def probe(self):
         if not hasattr(config, "GPIO_IR_WRITE"):
             return False
 
         self.irControl=utils.IRControl.IRControl()
-        print("ircontrol: "+str(self.irControl))
+        app_logger.info("ircontrol: "+str(self.irControl))
         self.disable()
         return True
 

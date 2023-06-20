@@ -1,7 +1,3 @@
-import RPi.GPIO as GPIO
-import os
-import sys
-
 import time
 from datetime import datetime, time as datetime_time, timedelta
 
@@ -12,16 +8,12 @@ import sensors
 import devices
 import database
 import TTS
-import sound
 
 from RootControl import RootControl
 
 class TempHum(RootControl):
 
     auto_mode = True
-
-    #temperature - will try to control it
-    check_temp = config.DEF_CHECK_TEMP
 
     #for dump sensors
     next_time_dump = time.time()
@@ -33,26 +25,24 @@ class TempHum(RootControl):
     temperature_values=[]
 
     def __init__(self):
-        super().__init__(self.__class__.__name__)
+        super().__init__()
         self.control_devices=devices.get(devices.ThermalFan)
         self.control_sensors=sensors.get(sensors.TempHum)
 
         self.auto_mode = True
-        self.check_temp = config.DEF_CHECK_TEMP
 
         if len(self.control_sensors)>1:
             raise ValueError("now we are supporting only 1 temperature sensor")
 
-        # if no devices - no reason to work
-        if len(self.control_devices)==0 or len(self.control_sensors)==0:
-            self.control_sensors=[]
-            self.control_devices=[]
+        # if no devices - reason to work log to database temperature
 
     def internal_switch_with_state_letency(self, new_state):
-        if self.enabled != new_state:
-            if time.time()>self.next_time_switch: #so fans will not be so frequent power on and off
-                self.internal_devices_enable_disable(new_state)
-                self.next_time_switch=time.time()+config.FAN_ON_OFF_DELAY_PERIOD_S
+        if len(self.control_devices) == 0: return # no devices
+        if self.enabled == new_state: return # nothing changed
+
+        if time.time()>self.next_time_switch: #so fans will not be so frequent power on and off
+            self.internal_devices_enable_disable(new_state)
+            self.next_time_switch=time.time()+config.FAN_ON_OFF_DELAY_PERIOD_S
 
     def Average_temperature(self, new_temperature):
 
@@ -85,7 +75,7 @@ class TempHum(RootControl):
                 self.send_telegram_warning(warning_message)
                 TTS.say(warning_message)
 
-            if temperature_average < self.check_temp:
+            if temperature_average < config.DEF_CHECK_TEMP:
                 self.internal_switch_with_state_letency(True)
             else:
                 self.internal_switch_with_state_letency(False)

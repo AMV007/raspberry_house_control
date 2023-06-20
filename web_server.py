@@ -8,17 +8,17 @@ from datetime import datetime, time as datetime_time, timedelta, date as datetim
 import _thread as thread
 import dateparser
 import traceback
-import logging
 import re
+import logging
 
 #my imports
 from utils.common import get_time
-import my_logging
+import app_logger
 
-import devices
 import sensors
 import controls
 import database
+import bus
 
 def get_form_param():
     start_date = request.args.get('start_date')
@@ -74,7 +74,7 @@ def watering_chart():
                                colors=colors, values=values,
                                start_date=start_date.strftime('%Y-%m-%d'), end_date=end_date.strftime('%Y-%m-%d'))
     except Exception as e:
-        my_logging.logger.exception("watering_chart error")
+        app_logger.exception("watering_chart error")
         return "Unable to process watering_chart chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -108,7 +108,7 @@ def co2_chart():
                                colors=colors, values=values,
                                start_date=start_date.strftime('%Y-%m-%d'), end_date=end_date.strftime('%Y-%m-%d'))
     except Exception as e:
-        my_logging.logger.exception("co2 chart error")
+        app_logger.exception("co2 chart error")
         return "Unable to process co2 chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -132,7 +132,7 @@ def watering_table():
         return render_template('watering_table.html', values_water=values_water,
                                start_date=start_date.strftime('%Y-%m-%d'), end_date=end_date.strftime('%Y-%m-%d'))
     except Exception as e:
-        my_logging.logger.exception("index chart error")
+        app_logger.exception("index chart error")
         return "Unable to process index chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -167,7 +167,7 @@ def temp_hum_chart():
                                labels=labels, values=values,
                                start_date=start_date.strftime('%Y-%m-%d'), end_date=end_date.strftime('%Y-%m-%d'))
     except Exception as e:
-        my_logging.logger.exception("index chart error")
+        app_logger.exception("index chart error")
         return "Unable to process index chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -206,7 +206,7 @@ def particles_chart():
         return render_template('multi_chart.html', type="line", title="PM dust chart", legends=legends, values=values, colors=colors, labels=labels,
                                start_date=start_date.strftime('%Y-%m-%d'), end_date=end_date.strftime('%Y-%m-%d'))
     except Exception as e:
-        my_logging.logger.exception("index chart error")
+        app_logger.exception("index chart error")
         return "Unable to process index chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -214,9 +214,12 @@ def particles_chart():
 
 def status_info():
     try:
-        CO2 = sensors.get(sensors.CO2)[0].read_val()
-        temperature, humidity, num_cycles_wrong = sensors.get(sensors.TempHum)[0].read_val()
-        particles = sensors.get(sensors.Particles_pms7003)[0].read_val()
+        data_bus=bus.DataBus.DataBus()
+        CO2 = data_bus.CO2
+        temperature = data_bus.temperature
+        humidity = data_bus.humidity
+        particles = data_bus.particles
+
         info_data = re.split('\n|:',controls.get_status_str()+sensors.get_status_str())
         info_data = list(filter(None, info_data))
         res_info = "<trt><td>Update time</td><td>" + \
@@ -232,11 +235,17 @@ def status_info():
         out_particles.append(particles['data']['10'])
         out_particles.append(particles['data']['12'])
 
-        return render_template('status_info.html', temp=str("%.1f" % temperature), hum=str("%.1f" % humidity), co2=str(CO2),
+        if temperature :
+            temperature=str("%.1f" % temperature)
+
+        if humidity:
+            humidity=str("%.1f" % humidity)
+
+        return render_template('status_info.html', temp=temperature, hum=humidity, co2=str(CO2),
                                particles=out_particles,
                                status_info=res_info)
     except Exception as e:
-        my_logging.logger.exception("status_info chart error")
+        app_logger.exception("status_info chart error")
         return "Unable to process status_info chart: " + traceback.format_exc(), 400
     finally:
         pass
@@ -246,7 +255,7 @@ def index():
     try:
         return render_template('index.html')
     except Exception as e:
-        my_logging.logger.exception("index chart error")
+        app_logger.exception("index chart error")
         return "Unable to process index chart: " + traceback.format_exc(), 400
     finally:
         pass

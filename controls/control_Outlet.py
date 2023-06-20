@@ -9,7 +9,7 @@ from RootControl import RootControl
 class Outlet(RootControl):
 
     def __init__(self):
-        super().__init__(self.__class__.__name__)
+        super().__init__()
         self.control_devices=devices.get(devices.Outlet)
 
     def do_check(self,noisy_time=False):

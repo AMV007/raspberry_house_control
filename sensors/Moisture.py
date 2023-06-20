@@ -1,16 +1,10 @@
 import RPi.GPIO as GPIO
-import os
-import sys
 
 import config
-import logging
 
 from RootSensor import RootSensor
 
 class Moisture(RootSensor):
-    test_field="asdasd"
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         with self.lock:
@@ -22,8 +16,9 @@ class Moisture(RootSensor):
 
     def read_val(self):
         with self.lock:
-            ret = GPIO.input(config.GPIO_MOISTURE)
-        return ret
+            value = GPIO.input(config.GPIO_MOISTURE)
+        self.data_bus.moisture=value
+        return value
 
     def get_status_str(self):
         ret = "Moisture status: "

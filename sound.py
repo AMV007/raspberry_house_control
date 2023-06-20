@@ -1,105 +1,75 @@
-import my_logging
+
 import os
-import threading
+import sounddevice as sd
+import alsaaudio as audio
+from utils_common import minmax
 
-#to hide pygame import message
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide" #for hide pygame import message
+os.environ['SDL_AUDIODRIVER'] = "alsa" #for use ALSA in pygame, by default Jabra not visible
+
 import pygame
+import pygame._sdl2 as sdl2
 
-import pyaudio
-from ctypes import *
-import wave
+from utils_sound import play_audio_file
 
-import pyttsx3
+jabra_device_name_pygame = ""
+jabra_device_name = ""
+jabra_device_id = ""
+jabra_out_mixer = ""
 
-import config
-import controls
+def get_jabra_device_name_pygame():
+    pygame.mixer.init()
+    names=sdl2.audio.get_audio_device_names(False)
+    pygame.mixer.quit()
+    for name in names:
+        if name.startswith("Jabra"):
+            return name
+    return None
 
-lock = None
-asound=None
-os.environ['SDL_VIDEODRIVER'] = 'dummy'  # for headless pygame
+def get_jabra_device_sd():
+    devices = sd.query_devices()
+    for i, device in enumerate(devices):
+        if device['name'].startswith("Jabra"):
+            return i, device['name']
+    return -1, None
 
-# ---------------------------- to remove pyaudio errors in text
-# From alsa-lib Git 3fd4ab9be0db7c7430ebd258f2717a976381715d
-# $ grep -rn snd_lib_error_handler_t
-# include/error.h:59:typedef void (*snd_lib_error_handler_t)(const char *file, int line, const char *function, int err, const char *fmt, ...) /* __attribute__ ((format (printf, 5, 6))) */;
-# Define our error handler type
-ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+def get_jabra_out_mixer():
+    scan_cards = audio.cards()
+    cardindex=0
+    for card in scan_cards:
+        if card == "USB":
+            scan_mixers = audio.mixers(scan_cards.index(card))
+            for mixer in scan_mixers:
+                if mixer == "PCM":
+                    return audio.Mixer(mixer, cardindex=cardindex)
+        cardindex+=1
 
-def py_error_handler(filename, line, function, err, fmt):
-    pass
+def init(logger):
+    global jabra_device_name_pygame
+    global jabra_device_name
+    global jabra_device_id
+    global jabra_out_mixer
 
-c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+    jabra_device_name_pygame = get_jabra_device_name_pygame()
+    jabra_device_id, jabra_device_name = get_jabra_device_sd()
+    jabra_out_mixer=get_jabra_out_mixer()
 
-def init():
-    global lock
-    global asound
-    lock = threading.Lock()
-    # to suppress errors from asound library, because this thread using audio constantly - removed audio error
-    # supporess from other modules
-    asound = cdll.LoadLibrary('libasound.so')
-    asound.snd_lib_error_set_handler(c_error_handler)  # Set error handler
+    logger.info(f"sd jabra audio device id: {jabra_device_id}, name: {jabra_device_name}, ")
+    logger.info(f"pygame jabra audio device:{jabra_device_name_pygame}")
 
 def deinit():
-    asound.snd_lib_error_set_handler(None)
+    """ for now not using """
+    pass
 
-def beep(duration_s=3, force=False):  # duration in floating point !
-
+def beep(duration_s=3):  # duration in floating point !
     freq = 600  # Hz
-    #os.system('speaker-test -c1 -t sine -f %f -P %s -p 0.4 -l 1' % (freq,duration))
-    os.system('play --no-show-progress --null --channels 1 synth %s sine %f' %
-              (duration_s, freq))
+    audio_file="/dev/shm/beep.wav"
+    os.system(f"ffmpeg -y -loglevel error -f lavfi -i \"sine=frequency={freq}:duration={duration_s}\" {audio_file}")
+    play_audio_file(audio_file, jabra_device_name_pygame)
 
+def get_master_volume():
+    return int(jabra_out_mixer.getvolume()[0])
 
-def play_wav(name, force=False):
-
-    # define stream chunk
-    chunk = 32768
-
-    # open a wav format music
-    f = wave.open(name, "rb")
-
-    p = pyaudio.PyAudio()
-    # open stream
-    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),
-                    channels=f.getnchannels(),
-                    rate=f.getframerate(),
-                    output=True)
-    # read data
-    data = f.readframes(chunk)
-
-    # play stream
-    while data:
-        stream.write(data)
-        data = f.readframes(chunk)
-
-    # stop stream
-    stream.stop_stream()
-    stream.close()
-
-    # close PyAudio
-    p.terminate()
-
-
-def play_command(name):
-    filename = "sound/"+name+".wav"
-    play_file(filename)
-
-
-def play_file(filename, delete_after=False):
-    with lock:
-        try:
-            pygame.mixer.init()
-
-            pygame.mixer.music.load(filename)
-            pygame.mixer.music.play()
-
-            while pygame.mixer.music.get_busy():
-                pygame.time.wait(100)  # 100 ms
-
-            pygame.mixer.quit()
-
-            if delete_after:
-                os.remove(filename)
-        except Exception as e:
-            my_logging.logger.exception("pygame play sound exception:")
+def set_master_volume(change_volume:int):
+    new_volume = minmax(get_master_volume()+change_volume,0,100)
+    jabra_out_mixer.setvolume(new_volume)

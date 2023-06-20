@@ -1,15 +1,19 @@
 from threading import Lock
 from abc import ABC, abstractmethod
 
+import bus
+
 class RootSensor(ABC):
 
     name="unknown"
     enabled=False
     lock = None
+    data_bus=None
 
-    def __init__(self, name):
-        self.name="sensor "+name
+    def __init__(self):
+        self.name="sensor "+self.__class__.__name__
         self.lock = Lock()
+        self.data_bus=bus.DataBus.DataBus()
 
     @abstractmethod
     def probe(self):

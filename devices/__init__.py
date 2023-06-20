@@ -31,12 +31,13 @@ def set_all(all):
         globals()[module] = __import__(module)
 
 #init all devices
-def init():
+def init(logger):
     global active
+    logger.info(f"{__name__} initing ...")
     for cls in RootDevice.RootDevice.__subclasses__():
         new_cls=cls()
         if new_cls.probe():
-            print (f"device exist: {type(new_cls).__name__}")
+            logger.info (f"device exist: {type(new_cls).__name__}")
             active.append(new_cls)
 
 def disable():
@@ -55,6 +56,7 @@ def get(dev_module):
         if name==filename:
             res.append(entry)
     if len(res) == 0:
+        '''not exist any instance'''
         pass
     return res
 

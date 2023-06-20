@@ -12,10 +12,10 @@ class RootControl(ABC):
     control_sensors=[]
     send_telegram_warning=None
 
-    send_telegram_warning_handle=None
+    __send_telegram_warning_handle=None
 
-    def __init__(self, name):
-        self.name="control "+name
+    def __init__(self):
+        self.name="control "+self.__class__.__name__
         self.lock = Lock()
 
     def probe(self):
@@ -77,11 +77,11 @@ class RootControl(ABC):
         else:
             res+=": disabled"
         return res
-    
+
     def send_telegram_warning(self, text):
-        if self.send_telegram_warning_handle:
-            self.send_telegram_warning_handle(text)
+        if self.__send_telegram_warning_handle:
+            self.__send_telegram_warning_handle(text)
 
     def set_telegram_warning_handle(self, send_telegram_warning_handle):
-        self.send_telegram_warning_handle=send_telegram_warning_handle
+        self.__send_telegram_warning_handle=send_telegram_warning_handle
 

@@ -3,14 +3,11 @@ import os
 import sys
 
 import config
-import logging
 
 from RootSensor import RootSensor
 
 class Light(RootSensor):
     variable=1
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         with self.lock:
@@ -23,8 +20,9 @@ class Light(RootSensor):
 
     def read_val(self):
         with self.lock:
-            ret = not GPIO.input(config.GPIO_LIGHT_DETECT)
-        return ret
+            value = not GPIO.input(config.GPIO_LIGHT_DETECT)
+        self.data_bus.light=value
+        return value
 
     def get_status_str(self):
         ret = "Light status: "

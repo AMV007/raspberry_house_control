@@ -1,17 +1,14 @@
 import subprocess
-import picamera
 from time import sleep
-from picamera import PiCamera
+from picamera2 import Picamera2, Preview
 
 
 from RootDevice import RootDevice
 
 class Camera(RootDevice):
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
-        pipe = subprocess.Popen("/opt/vc/bin/vcgencmd get_camera", shell=True, stdout=subprocess.PIPE).stdout
+        pipe = subprocess.Popen("vcgencmd get_camera", shell=True, stdout=subprocess.PIPE).stdout
         out=pipe.read()
         if "detected=1" in str(out):
             return True
@@ -20,14 +17,14 @@ class Camera(RootDevice):
 
     def do_photo(self):
         with self.lock:
-            camera = PiCamera()
+            picam2 = Picamera2()
             # camera.resolution = (1680, 1050) #for some reason - don't know how switch to photo mode
-            camera.start_preview()
+            picam2.start_preview(Preview.QTGL)
+            picam2.start()
             # Camera warm-up time
             sleep(2)
-            camera.capture('/dev/shm/camera.jpg')
-            camera.stop_preview()
-            camera.close()
+            picam2.capture_file("/dev/shm/camera.jpg")
+            picam2.close()
 
     def get_status_str(self):
         ret = "Camera: "

@@ -23,17 +23,18 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
 ################################################################################
 import inspect
 from pathlib import Path
-from ppretty import ppretty
 
 active=[]
 
 #init all devices
-def init():
+def init(logger, telegram_warning_handle):
     global active
+    logger.info(f"{__name__} initing ...")
     for cls in RootControl.RootControl.__subclasses__():
         new_cls=cls()
         if new_cls.probe():
-            print (f"control exist: {type(new_cls).__name__}")
+            logger.info (f"control exist: {type(new_cls).__name__}")
+            new_cls.set_telegram_warning_handle(telegram_warning_handle)
             active.append(new_cls)
 
 def disable():
@@ -50,17 +51,12 @@ def set_auto():
 
 #because there must be only 1 control for each class - it will simplyfy me task slightly
 def get(dev_module):
-    res=None
     name = dev_module.__name__
     for entry in active:
         filename=Path(inspect.getfile(entry.__class__)).resolve().stem
         if name==filename:
             return entry
-    return res
-
-def set_telegram_warning_handle(telegram_warning_handle):
-    for entry in active:
-        entry.set_telegram_warning_handle(telegram_warning_handle)
+    return None
 
 def get_status_str():
     info = ""

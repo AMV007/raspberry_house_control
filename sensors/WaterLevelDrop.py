@@ -3,16 +3,12 @@ import os
 import sys
 
 import config
-import logging
 
 from RootSensor import RootSensor
+import app_logger
 
+# this may be used only during watering
 class WaterLevelDrop(RootSensor):
-    # this may be used only during watering
-    last_val = None
-
-    def __init__(self):
-        super().__init__(self.__class__.__name__)
 
     def probe(self):
         with self.lock:
@@ -24,15 +20,15 @@ class WaterLevelDrop(RootSensor):
 
     def read_val(self):
         with self.lock:
-            self.last_val = GPIO.input(config.GPIO_WATER_DROP_SENSOR)
-        return self.last_val
+            self.data_bus.waterLevel=GPIO.input(config.GPIO_WATER_DROP_SENSOR)
+        return self.data_bus.waterLevel
 
 
     def get_status_str(self):
         ret = "Last water level: "
-        if self.last_val == None:
+        if self.data_bus.waterLevel == None:
             ret += "not measured yet"
-        elif self.last_val:
+        elif self.data_bus.waterLevel:
             ret += "critical low"
         else:
             ret += "ok"

@@ -1,0 +1,5 @@
+*.py~
+*.pyc
+*.pt
+mywav_reduced_noise.wav
+vosk-model-small-ru-0.22
